@@ -1,0 +1,23 @@
+name: Global Search and Replace
+on: 
+  workflow_dispatch: # Allows you to run this manually
+
+jobs:
+  replace-id:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Replace AdSense Publisher ID
+        run: |
+          # This finds all files and replaces the old ID with the new one
+          find . -type f -not -path '*/.*' -exec sed -i 's/ca-pub-8768412744761524/ca-pub-5296121764156539/g' {} +
+
+      - name: Commit and Push changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Automated update: Updated AdSense Publisher ID" || echo "No changes to commit"
+          git push
