@@ -1,6 +1,9 @@
 name: Global Search and Replace
 on: 
-  workflow_dispatch: # Allows you to run this manually
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   replace-id:
@@ -11,7 +14,6 @@ jobs:
 
       - name: Replace AdSense Publisher ID
         run: |
-          # This finds all files and replaces the old ID with the new one
           find . -type f -not -path '*/.*' -exec sed -i 's/ca-pub-8768412744761524/ca-pub-5296121764156539/g' {} +
 
       - name: Commit and Push changes
