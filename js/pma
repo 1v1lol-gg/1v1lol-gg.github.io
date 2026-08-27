@@ -1,0 +1,209 @@
+/* Promotid — header banner + scroll popup, single file.
+   store.sportsgrid.com
+   Both features share one banner map and one title matcher. Config at the top.
+   Header banner : inserted directly under the page <h1>.
+   Scroll popup  : fires once per session past SCROLL_AT with MIN_DWELL_MS dwell.
+   Disable either by flipping ENABLE_BANNER / ENABLE_POPUP to false. */
+(function () {
+  "use strict";
+
+  /* ---------------- config ---------------- */
+  var ENABLE_BANNER = true;
+  var ENABLE_POPUP  = true;
+  var CHECKOUT      = "https://optimonext.s3.amazonaws.com/index.html?mt=";
+  var DEFAULT_KEY   = "instagram_followers";
+  var SCROLL_AT     = 0.35;      // popup: fraction of page scrolled
+  var MIN_DWELL_MS  = 6000;      // popup: ignore fast flick-scrolls
+  var ONCE_KEY      = "pmp_seen";
+  var REL           = "sponsored nofollow noopener";
+
+  /* ---------------- banners ---------------- */
+  var BANNERS = {
+    instagram_followers: "https://assets.bigcartel.com/assets/2772540/instagram_followers.png?w=2400&h=2400&fit=clip",
+    instagram_likes: "https://assets.bigcartel.com/assets/2772543/instagram_likes.png?w=2400&h=2400&fit=clip",
+    instagram_views: "https://assets.bigcartel.com/assets/2772549/instagram_views.png?w=2400&h=2400&fit=clip",
+    instagram_comments: "https://assets.bigcartel.com/assets/2772537/instagram_comments.png?w=2400&h=2400&fit=clip",
+    instagram_reel_likes: "https://assets.bigcartel.com/assets/2772546/instagram_reel_likes.png?w=2400&h=2400&fit=clip",
+    facebook_page_likes: "https://assets.bigcartel.com/assets/2772528/facebook_page_likes.png?w=2400&h=2400&fit=clip",
+    facebook_followers: "https://assets.bigcartel.com/assets/2772522/facebook_followers.png?w=2400&h=2400&fit=clip",
+    facebook_post_likes: "https://assets.bigcartel.com/assets/2772531/facebook_post_likes.png?w=2400&h=2400&fit=clip",
+    facebook_video_views: "https://assets.bigcartel.com/assets/2772534/facebook_video_views.png?w=2400&h=2400&fit=clip",
+    facebook_comments: "https://assets.bigcartel.com/assets/2772609/facebook_comments.png?w=2400&h=2400&fit=clip",
+    youtube_views: "https://assets.bigcartel.com/assets/2772597/youtube_views.png?w=2400&h=2400&fit=clip",
+    youtube_likes: "https://assets.bigcartel.com/assets/2772615/youtube_likes.png?w=2400&h=2400&fit=clip",
+    youtube_subscribers: "https://assets.bigcartel.com/assets/2772594/youtube_subscribers.png?w=2400&h=2400&fit=clip",
+    youtube_watchtime: "https://assets.bigcartel.com/assets/2772600/youtube_watchtime.png?w=2400&h=2400&fit=clip",
+    youtube_comments: "https://assets.bigcartel.com/assets/2772591/youtube_comments.png?w=2400&h=2400&fit=clip",
+    twitter_likes: "https://assets.bigcartel.com/assets/2772612/twitter_likes.png?w=2400&h=2400&fit=clip",
+    twitter_retweets: "https://assets.bigcartel.com/assets/2772585/twitter_retweets.png?w=2400&h=2400&fit=clip",
+    twitter_followers: "https://assets.bigcartel.com/assets/2772582/twitter_followers.png?w=2400&h=2400&fit=clip",
+    twitter_views: "https://assets.bigcartel.com/assets/2772588/twitter_views.png?w=2400&h=2400&fit=clip",
+    tiktok_followers: "https://assets.bigcartel.com/assets/2772570/tiktok_followers.png?w=2400&h=2400&fit=clip",
+    tiktok_likes: "https://assets.bigcartel.com/assets/2772573/tiktok_likes.png?w=2400&h=2400&fit=clip",
+    tiktok_views: "https://assets.bigcartel.com/assets/2772579/tiktok_views.png?w=2400&h=2400&fit=clip",
+    tiktok_comments: "https://assets.bigcartel.com/assets/2772567/tiktok_comments.png?w=2400&h=2400&fit=clip",
+    tiktok_shares: "https://assets.bigcartel.com/assets/2772576/tiktok_shares.png?w=2400&h=2400&fit=clip",
+    spotify_followers: "https://assets.bigcartel.com/assets/2772558/spotify_followers.png?w=2400&h=2400&fit=clip",
+    spotify_playlist_followers: "https://assets.bigcartel.com/assets/2772564/spotify_playlist_followers.png?w=2400&h=2400&fit=clip",
+    spotify_monthly_listeners: "https://assets.bigcartel.com/assets/2772561/spotify_monthly_listeners.png?w=2400&h=2400&fit=clip",
+    discord_server_members: "https://assets.bigcartel.com/assets/2772606/discord_server_members.png?w=2400&h=2400&fit=clip",
+    linkedin_followers: "https://assets.bigcartel.com/assets/2772552/linkedin_followers.png?w=2400&h=2400&fit=clip",
+    snapchat_followers: "https://assets.bigcartel.com/assets/2772555/snapchat_followers.png?w=2400&h=2400&fit=clip",
+    twitch_followers: "https://assets.bigcartel.com/assets/2772618/twitch_followers.png?w=2400&h=2400&fit=clip"
+  };
+
+  /* ---------------- title matching ---------------- */
+  /* Ordered most-specific first: two-word service names must beat the generic
+     platform rules, or "Page Likes" resolves as plain "likes". */
+  var RULES = [
+    [/\breel\s*likes?\b/,                        "instagram_reel_likes"],
+    [/\bpage\s*likes?\b/,                        "facebook_page_likes"],
+    [/\bpost\s*likes?\b/,                        "facebook_post_likes"],
+    [/\bvideo\s*views?\b/,                       "facebook_video_views"],
+    [/\bwatch\s*-?\s*time\b|\bwatch\s*hours?\b/, "youtube_watchtime"],
+    [/\bplaylist\s*followers?\b/,                "spotify_playlist_followers"],
+    [/\bmonthly\s*listeners?\b/,                 "spotify_monthly_listeners"],
+    [/\b(discord|server)\s*members?\b/,          "discord_server_members"],
+    [/\blinkedin\b/,                             "linkedin_followers"],
+    [/\btwitch\b/,                               "twitch_followers"],
+    [/\bsnapchat\b/,                             "snapchat_followers"],
+    [/\bretweets?\b|\breposts?\b/,               "twitter_retweets"],
+    [/\bshares?\b/,                              "tiktok_shares"],
+    [/\bsubscribers?\b/,                         "youtube_subscribers"],
+    [/instagram|(^|\W)ig(\W|$)/, { followers:"instagram_followers", likes:"instagram_likes",
+                                   views:"instagram_views", comments:"instagram_comments" }],
+    [/tiktok|tik\s*tok/,         { followers:"tiktok_followers", likes:"tiktok_likes",
+                                   views:"tiktok_views", comments:"tiktok_comments" }],
+    [/youtube|(^|\W)yt(\W|$)/,   { views:"youtube_views", likes:"youtube_likes",
+                                   comments:"youtube_comments" }],
+    [/facebook|(^|\W)fb(\W|$)/,  { followers:"facebook_followers", comments:"facebook_comments" }],
+    [/twitter|(^|\W)x(\W|$)/,    { followers:"twitter_followers", likes:"twitter_likes",
+                                   views:"twitter_views" }],
+    [/spotify/,                  { followers:"spotify_followers" }]
+  ];
+  var METRICS = ["followers", "likes", "views", "comments"];
+
+  function pickKey(title) {
+    var t = String(title || "").toLowerCase();
+    for (var i = 0; i < RULES.length; i++) {
+      var pat = RULES[i][0], tgt = RULES[i][1];
+      if (!pat.test(t)) continue;
+      if (typeof tgt === "string") return tgt;
+      for (var m = 0; m < METRICS.length; m++) {
+        if (new RegExp("\\b" + METRICS[m] + "?\\b").test(t) && tgt[METRICS[m]]) return tgt[METRICS[m]];
+      }
+    }
+    return DEFAULT_KEY;
+  }
+
+  function mainEl() {
+    return document.querySelector('main#main, [data-bc-hook="content"], main');
+  }
+  function pageKey() {
+    var m = mainEl(), h1 = m && m.querySelector("h1");
+    return pickKey((h1 && h1.textContent) || document.title || "");
+  }
+  function makeImg(key, css) {
+    var img = document.createElement("img");
+    img.src = BANNERS[key] || BANNERS[DEFAULT_KEY];
+    img.alt = "Promotid — buy " + key.replace(/_/g, " ");
+    img.width = 1400; img.height = 280; img.decoding = "async";
+    img.style.cssText = css;
+    return img;
+  }
+  function makeLink(key) {
+    var a = document.createElement("a");
+    a.href = CHECKOUT + key;
+    a.target = "_blank";
+    a.rel = REL;
+    return a;
+  }
+
+  /* ---------------- header banner ---------------- */
+  function insertBanner() {
+    var main = mainEl();
+    if (!main || main.querySelector("a[data-promotid]")) return;
+    var key = pageKey();
+    if (!BANNERS[key] && !BANNERS[DEFAULT_KEY]) return;
+    var a = makeLink(key);
+    a.setAttribute("data-promotid", key);
+    a.style.cssText = "display:block;margin:18px 0 24px;line-height:0;";
+    var img = makeImg(key, "max-width:100%;height:auto;border-radius:10px;display:block;");
+    img.loading = "lazy";
+    a.appendChild(img);
+    var h1 = main.querySelector("h1");
+    if (h1 && h1.parentNode) h1.parentNode.insertBefore(a, h1.nextSibling);
+    else main.insertBefore(a, main.firstChild);
+  }
+
+  /* ---------------- scroll popup ---------------- */
+  var openEl = null, prevOverflow = "";
+  function seen() { try { return sessionStorage.getItem(ONCE_KEY) === "1"; } catch (e) { return false; } }
+  function mark() { try { sessionStorage.setItem(ONCE_KEY, "1"); } catch (e) {} }
+  function onKey(e) { if (e.key === "Escape" || e.keyCode === 27) closePopup(); }
+  function closePopup() {
+    if (!openEl) return;
+    openEl.parentNode && openEl.parentNode.removeChild(openEl);
+    openEl = null;
+    document.body.style.overflow = prevOverflow;
+    document.removeEventListener("keydown", onKey);
+  }
+  function openPopup(key) {
+    if (openEl || seen()) return;
+    if (!BANNERS[key] && !BANNERS[DEFAULT_KEY]) return;
+    mark();
+    var wrap = document.createElement("div");
+    wrap.setAttribute("role", "dialog");
+    wrap.setAttribute("aria-modal", "true");
+    wrap.setAttribute("aria-label", "Promotid offer");
+    wrap.setAttribute("data-promotid-popup", key);
+    wrap.style.cssText = "position:fixed;inset:0;z-index:99999;display:flex;align-items:center;" +
+      "justify-content:center;background:rgba(0,0,0,.62);padding:20px;opacity:0;transition:opacity .22s ease;";
+    var card = document.createElement("div");
+    card.style.cssText = "position:relative;max-width:720px;width:100%;background:#fff;border-radius:14px;" +
+      "overflow:hidden;box-shadow:0 18px 60px rgba(0,0,0,.35);transform:translateY(10px);transition:transform .22s ease;";
+    var a = makeLink(key);
+    a.style.cssText = "display:block;line-height:0;";
+    a.appendChild(makeImg(key, "width:100%;height:auto;display:block;"));
+    var x = document.createElement("button");
+    x.type = "button";
+    x.setAttribute("aria-label", "Close");
+    x.innerHTML = "&times;";
+    x.style.cssText = "position:absolute;top:8px;right:10px;width:34px;height:34px;border:0;border-radius:50%;" +
+      "background:rgba(0,0,0,.55);color:#fff;font-size:22px;line-height:34px;cursor:pointer;padding:0;text-align:center;";
+    x.addEventListener("click", function (e) { e.stopPropagation(); closePopup(); });
+    card.appendChild(a); card.appendChild(x); wrap.appendChild(card);
+    wrap.addEventListener("click", function (e) { if (e.target === wrap) closePopup(); });
+    document.body.appendChild(wrap);
+    prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    openEl = wrap;
+    requestAnimationFrame(function () { wrap.style.opacity = "1"; card.style.transform = "translateY(0)"; });
+  }
+  function armPopup() {
+    if (seen()) return;
+    var started = Date.now(), armed = true;
+    function depth() {
+      var h = document.documentElement;
+      var total = (h.scrollHeight || document.body.scrollHeight) - window.innerHeight;
+      if (total <= 0) return 1;
+      return (window.pageYOffset || h.scrollTop || 0) / total;
+    }
+    function onScroll() {
+      if (!armed || Date.now() - started < MIN_DWELL_MS || depth() < SCROLL_AT) return;
+      armed = false;
+      window.removeEventListener("scroll", onScroll);
+      openPopup(pageKey());
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+
+  /* ---------------- boot ---------------- */
+  function init() {
+    if (ENABLE_BANNER) { try { insertBanner(); } catch (e) {} }
+    if (ENABLE_POPUP)  { try { armPopup();     } catch (e) {} }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+})();
